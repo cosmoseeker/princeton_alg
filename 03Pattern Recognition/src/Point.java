@@ -64,13 +64,13 @@ public class Point implements Comparable<Point> {
      */
     public double slopeTo(Point that) {
         /* YOUR CODE HERE */
-        if ((this.y == that.y) && (this.x == that.x)) {// equal
+        if (this.compareTo(that) == 0) { // equal
             return Double.NEGATIVE_INFINITY;
         }
-        if (this.y == that.y) {// horizontal
-            return 0.0;
+        if (this.y == that.y) { // horizontal
+            return +0.0;
         }
-        if (this.x == that.y) {// vertical
+        if (this.x == that.x) { // vertical
             return Double.POSITIVE_INFINITY;
         }
         return (that.y - this.y) / (that.x - this.x + 0.0);
