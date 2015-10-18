@@ -3,24 +3,21 @@ import java.util.List;
 
 import edu.princeton.cs.algs4.Point2D;
 import edu.princeton.cs.algs4.RectHV;
+import edu.princeton.cs.algs4.Stack;
 import edu.princeton.cs.algs4.StdDraw;
 
 public class KdTree {
     private static class Node {
         private Point2D point;
-        private int     demension;
+        private int     level;
         private Node    left;
         private Node    right;
-        private double  endpoint1;
-        private double  endpoint2;
 
         Node() {
             this.point = null;
             this.left = null;
             this.right = null;
-            this.demension = 1;
-            this.endpoint1 = 0;
-            this.endpoint2 = 1;
+            this.level = 1;
         }
     }
 
@@ -51,38 +48,29 @@ public class KdTree {
         Node leave = new Node();
         leave.point = p;
         Node parent = this.root;
+        if (this.contains(p))
+            return;
         while (parent != null) {
             double direct = this.direction(parent, p);
+            leave.level = parent.level + 1;
             if (direct < 0) {
                 if (parent.left != null) {
                     parent = parent.left;
-                }else{
+                } else {
+                    parent.left = leave;
                     break;
                 }
             } else {
-                if (parent.left != null) {
+                if (parent.right != null) {
                     parent = parent.right;
-                }else{
+                } else {
+                    parent.right = leave;
                     break;
                 }
             }
         }
         if (parent == null) {
             this.root = leave;
-        } else {
-            leave.demension = (parent.demension + 1) % KdTree.demensions;
-            if (leave.demension == 0) {
-                leave.endpoint1 = parent.point.x();
-                if (parent.point.y() < p.y()) {
-                    leave.endpoint2 = 0;
-                    parent.left = leave;
-                } else {
-                    leave.endpoint2 = 1;
-                    parent.right = leave;
-                }
-            } else {
-
-            }
         }
         ++this.size;
     }
@@ -105,33 +93,46 @@ public class KdTree {
 
     private double direction(Node search, Point2D p) {
         Point2D current = search.point;
-        if (search.demension == 1) {
-            return current.x() - p.x();
+        if (search.level % KdTree.demensions == 1) { // vertical
+            return p.x() - current.x();
+        } else {
+            return p.y() - current.y();
         }
-        return current.y() - p.y();
     }
 
     // draw all points to standard draw
     public void draw() {
         Node node = this.root;
-        draw(node);
+        double xmin = 0.0, ymin = 0.0, xmax = 1.0, ymax = 1.0;
+        draw(node, xmin, xmax, ymin, ymax);
     }
 
-    private void draw(Node node) {
+    private void draw(Node node, double xmin, double xmax, double ymin,
+            double ymax) {
         if (node == null)
             return;
+        // draw point
         StdDraw.setPenColor(StdDraw.BLACK);
         StdDraw.setPenRadius(.01);
         StdDraw.point(node.point.x(), node.point.y());
+        // draw line
         StdDraw.setPenRadius();
-        if (node.demension == 0) {
+        double x = node.point.x(), y = node.point.y();
+        switch (node.level % 2) {
+        case 0:// horizontal
             StdDraw.setPenColor(StdDraw.BLUE);
-            StdDraw.line(node.endpoint1, node.point.y(), node.endpoint2,
-                    node.point.y());
-        } else if (node.demension == 1) {
+            StdDraw.line(xmin, y, xmax, y);
+            this.draw(node.left, xmin, xmax, ymin, y);
+            this.draw(node.right, xmin, xmax, y, ymax);
+            return;
+        case 1:// vertical
             StdDraw.setPenColor(StdDraw.RED);
-            StdDraw.line(node.point.x(), node.endpoint1, node.point.x(),
-                    node.endpoint2);
+            StdDraw.line(x, ymin, x, ymax);
+            this.draw(node.left, xmin, x, ymin, ymax);
+            this.draw(node.right, x, xmax, ymin, ymax);
+            return;
+        default:
+            return;
         }
     }
 
@@ -140,20 +141,103 @@ public class KdTree {
         if (rect == null)
             throw new java.lang.NullPointerException();
         List<Point2D> points = new ArrayList<Point2D>();
-        double xmin = rect.xmin(), xmax = rect.xmax(), ymin = rect.ymin(), ymax = rect
-                .ymax();
-
+        Node node = this.root;
+        this.range(rect, node, points);
         return points;
+    }
+
+    private void range(RectHV rect, Node node, List<Point2D> points) {
+        if (node == null)
+            return;
+        if (rect.contains(node.point))
+            points.add(node.point);
+        switch (node.level % 2) {
+        case 0:// horizontal
+            if (rect.ymax() >= node.point.y()) {
+                range(rect, node.right, points);
+            }
+            if (rect.ymin() <= node.point.y()) {
+                range(rect, node.left, points);
+            }
+            return;
+        case 1:// vertical
+            if (rect.xmax() >= node.point.x()) {
+                range(rect, node.right, points);
+            }
+            if (rect.xmin() <= node.point.x()) {
+                range(rect, node.left, points);
+            }
+            return;
+        default:
+            return;
+        }
     }
 
     // a nearest neighbor in the set to point p; null if the set is empty
     public Point2D nearest(Point2D p) {
         if (p == null)
             throw new java.lang.NullPointerException();
-        Point2D rpoint = null;
-        double mindist = Double.MAX_VALUE, dist;
+        if (this.isEmpty())
+            return null;
+        return nearest(this.root, p);
+    }
 
-        return rpoint;
+    private Point2D nearest(Node node, Point2D p) {
+        if (node == null)
+            return null;
+        Stack<Node> stack = new Stack<Node>();
+        stack.push(node);
+
+        double minDistSquare = Double.MAX_VALUE, dist;
+        Node top;
+        Point2D nearestP = node.point;
+        while (stack.peek() != null) {
+            top = stack.peek();
+            // refresh min
+            dist = p.distanceSquaredTo(top.point);
+            if (dist < minDistSquare) {
+                minDistSquare = dist;
+                nearestP = top.point;
+            }
+            // add new node
+            if (this.direction(top, p) < 0.0) {
+                stack.push(top.left);
+            } else {
+                stack.push(top.right);
+            }
+        }
+        // search path finish
+        stack.pop(); // pop null
+        while (!stack.isEmpty()) {
+            top = stack.pop();
+            double axisDistSquare = axisDistance(top, p);
+            if (axisDistSquare > minDistSquare) {
+                continue;
+            }
+            Point2D temp = null;
+            double tempDistSquare;
+            if (this.direction(top, p) < 0.0) {
+                temp = nearest(top.right, p);
+            } else {
+                temp = nearest(top.left, p);
+            }
+            if (temp != null) {
+                tempDistSquare = p.distanceSquaredTo(temp);
+                if (tempDistSquare < minDistSquare) {
+                    nearestP = temp;
+                    minDistSquare = tempDistSquare;
+                }
+            }
+        }
+        return nearestP;
+    }
+
+    private double axisDistance(Node top, Point2D p) {
+        if (top.level % KdTree.demensions == 0) {
+            return (top.point.y() - p.y())*(top.point.y() - p.y());
+        } else {
+            return (top.point.x() - p.x())*(top.point.x() - p.x());
+        }
     }
 
     // unit testing of the methods (optional)
