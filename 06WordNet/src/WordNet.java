@@ -1,8 +1,8 @@
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.TreeMap;
 
 import edu.princeton.cs.algs4.Digraph;
 import edu.princeton.cs.algs4.DirectedCycle;
@@ -11,16 +11,50 @@ import edu.princeton.cs.algs4.In;
 public class WordNet {
     private Map<String, List<Integer>> nouns;
     private Map<Integer, List<String>> synset;
-    private Digraph                    graph;
-    private SAP                        sap;
+    private Digraph graph;
+    private SAP sap;
 
     // constructor takes the name of the two input files
     public WordNet(String synsets, String hypernyms) {
-        if (synsets == null || hypernyms == null) {
-            throw new java.lang.NullPointerException();
+        CheckUtil.checkNull(synsets);
+        CheckUtil.checkNull(hypernyms);
+
+        parseSynsets(synsets);
+        int outNum = parseHypernyms(hypernyms);
+        checkDAG(outNum);
+        this.sap = new SAP(this.graph);
+    }
+
+    private void checkDAG(int outNum) {
+        if (this.graph.V() - outNum > 1) { // only one 0 out
+            throw new java.lang.IllegalArgumentException();
         }
-        nouns = new TreeMap<String, List<Integer>>();
-        synset = new TreeMap<Integer, List<String>>();
+        if (new DirectedCycle(this.graph).hasCycle()) {
+            throw new IllegalArgumentException();
+        }
+    }
+
+    private int parseHypernyms(String hypernyms) {
+        In hyperIn = new In(hypernyms);
+        this.graph = new Digraph(this.synset.size());
+        int outNum = 0;
+        while (hyperIn.hasNextLine()) {
+            String[] vec = hyperIn.readLine().split(",");
+            int in = Integer.parseInt(vec[0]);
+            if (vec.length > 1) {
+                outNum++;
+                for (int num = 1; num < vec.length; num++) {
+                    int out = Integer.parseInt(vec[num]);
+                    this.graph.addEdge(in, out);
+                }
+            }
+        }
+        return outNum;
+    }
+
+    private void parseSynsets(String synsets) {
+        nouns = new HashMap<String, List<Integer>>();
+        synset = new HashMap<Integer, List<String>>();
         In synIn = new In(synsets);
         while (synIn.hasNextLine()) {
             String[] line = synIn.readLine().split(",");
@@ -38,28 +72,6 @@ public class WordNet {
                 }
             }
         }
-
-        In hyperIn = new In(hypernyms);
-        this.graph = new Digraph(this.synset.size());
-        int outNum = 0;
-        while (hyperIn.hasNextLine()) {
-            String[] vec = hyperIn.readLine().split(",");
-            int in = Integer.parseInt(vec[0]);
-            if (vec.length > 1) {
-                outNum++;
-                for (int num = 1; num < vec.length; num++) {
-                    int out = Integer.parseInt(vec[num]);
-                    this.graph.addEdge(in, out);
-                }
-            }
-        }
-        if (this.graph.V() - outNum > 1) { // only one 0 out
-            throw new java.lang.IllegalArgumentException();
-        }
-        if (hasCycle()) {
-            throw new IllegalArgumentException();
-        }
-        this.sap = new SAP(this.graph);
     }
 
     // returns all WordNet nouns
@@ -69,20 +81,18 @@ public class WordNet {
 
     // is the word a WordNet noun?
     public boolean isNoun(String word) {
-        if (word == null) {
-            throw new java.lang.NullPointerException();
-        }
+        CheckUtil.checkNull(word);
         return this.nouns.containsKey(word);
     }
 
     // distance between nounA and nounB (defined below)
     public int distance(String nounA, String nounB) {
-        if (nounA == null || nounB == null) {
-            throw new java.lang.NullPointerException();
-        }
+        CheckUtil.checkNull(nounA);
+        CheckUtil.checkNull(nounB);
         if (!isNoun(nounA) || !isNoun(nounB)) {
             throw new java.lang.IllegalArgumentException();
         }
+
         if (nounA.equals(nounB)) {
             return 0;
         }
@@ -93,14 +103,20 @@ public class WordNet {
     // a synset (second field of synsets.txt) that is the common ancestor of
     // nounA and nounB in a shortest ancestral path (defined below)
     public String sap(String nounA, String nounB) {
-        if (nounA == null || nounB == null) {
-            throw new java.lang.NullPointerException();
-        }
+        CheckUtil.checkNull(nounA);
+        CheckUtil.checkNull(nounB);
         if (!isNoun(nounA) || !isNoun(nounB)) {
             throw new java.lang.IllegalArgumentException();
         }
-        List<Integer> idA = this.nouns.get(nounA), idB = this.nouns.get(nounB);
-        int ancester = this.sap.ancestor(idA, idB);
+
+        int ancester;
+        if (nounA.equals(nounB)) {
+            ancester = this.nouns.get(nounA).get(0);
+        } else {
+            List<Integer> idA = this.nouns.get(nounA);
+            List<Integer> idB = this.nouns.get(nounB);
+            ancester = this.sap.ancestor(idA, idB);
+        }
         List<String> words = this.synset.get(ancester);
         StringBuilder sb = new StringBuilder();
         for (String word : words) {
@@ -108,10 +124,6 @@ public class WordNet {
             sb.append(" ");
         }
         return sb.substring(0, sb.length() - 1).toString();
-    }
-
-    private boolean hasCycle() {
-        return new DirectedCycle(this.graph).hasCycle();
     }
 
     // do unit testing of this class

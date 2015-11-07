@@ -1,3 +1,5 @@
+import java.util.Arrays;
+
 import edu.princeton.cs.algs4.In;
 import edu.princeton.cs.algs4.StdOut;
 
@@ -6,15 +8,13 @@ public class Outcast {
 
     // constructor takes a WordNet object
     public Outcast(WordNet wordnet) {
-        if (wordnet == null) {
-            throw new java.lang.NullPointerException();
-        }
+        CheckUtil.checkNull(wordnet);
         this.wordNet = wordnet;
     }
 
     // given an array of WordNet nouns, return an outcast
     public String outcast(String[] nouns) {
-        if (nouns.length < 1) {
+        if (!CheckUtil.checkLen(Arrays.asList(nouns))) {
             throw new java.lang.IllegalArgumentException();
         }
         int[] dist = new int[nouns.length];
