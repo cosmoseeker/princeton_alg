@@ -8,9 +8,9 @@ public class SeamDFS {
     private IndexMinPQ<Double> pq;
     private final int w;
     private final int h;
-    private Pixel[][] pic;
+    private Pixel[][] _pic;
 
-    public SeamDFS(Pixel[][] pic2, int w, int h) {
+    public SeamDFS(Pixel[][] pic, int w, int h) {
         int len = w * h + 2;
         edgeTo = new int[len];
         distTo = new double[len];
@@ -18,16 +18,22 @@ public class SeamDFS {
         pq = new IndexMinPQ<Double>(len);
         this.w = w;
         this.h = h;
-        this.pic = pic2;
+        this._pic = pic;
     }
 
     public void findSeam() {
+        boolean[] mark = new boolean[w * h + 2];
         distTo[0] = 0;
         pq.insert(0, 0.0);
+        mark[0] = true;
+
         while (!pq.isEmpty()) {
             int index = pq.delMin();
             for (int adj : getAdj(index)) {
-                relax(index, adj);
+                if (!mark[adj]) {
+                    relax(index, adj);
+                    mark[adj] = true;
+                }
             }
         }
     }
@@ -36,7 +42,7 @@ public class SeamDFS {
         int[] c = get2D(to);
         double weight;
         if (to <= w * h) {
-            weight = Math.sqrt(this.pic[c[0]][c[1]].energy);
+            weight = Math.sqrt(this._pic[c[0]][c[1]].energy);
         } else { // end node
             weight = 0;
         }

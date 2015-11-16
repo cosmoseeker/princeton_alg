@@ -3,37 +3,13 @@ import java.awt.Color;
 import edu.princeton.cs.algs4.Picture;
 
 public class SeamCarver {
-    private static final byte[][] DIRECTION = { { -1, 0 }, { 1, 0 }, { 0, -1 },
-            { 0, 1 } };
-    private int W;
-    private int H;
-    private Pixel[][] pic;
+    private EnergyPicture ePic;
     private boolean trans = false;
 
     // create a seam carver object based on the given picture
     public SeamCarver(Picture picture) {
         CheckUtil.checkNull(picture);
-        this.W = picture.width();
-        this.H = picture.height();
-        int side;
-        if (this.W > this.H) {
-            side = this.W;
-        } else {
-            side = this.H;
-        }
-        this.pic = new Pixel[side][side];
-        for (int row = 0; row < this.H; ++row) {
-            for (int col = 0; col < this.W; ++col) {
-                Color color = picture.get(col, row);
-                this.pic[row][col] = new Pixel(1000 * 1000, color);
-            }
-        }
-        for (int row = 1; row < this.H - 1; ++row) {
-            for (int col = 1; col < this.W - 1; ++col) {
-                int energy = this.gradientSq(col, row);
-                this.pic[row][col].energy = energy;
-            }
-        }
+        this.ePic = new EnergyPicture(picture);
     }
 
     // current picture
@@ -42,7 +18,8 @@ public class SeamCarver {
         Picture picture = new Picture(this.width(), this.height());
         for (int row = 0; row < this.height(); ++row) {
             for (int col = 0; col < this.width(); ++col) {
-                picture.set(col, row, this.pic[row][col].color);
+                Pixel p = ePic.pic[row][col];
+                picture.set(col, row, new Color(p.getRed(), p.getGreen(), p.getBlue()));
             }
         }
         return picture;
@@ -51,17 +28,17 @@ public class SeamCarver {
     // width of current picture
     public int width() {
         if (!this.trans)
-            return this.W; // transpose back
+            return ePic.W; // transpose back
         else
-            return this.H; // transposed
+            return ePic.H; // transposed
     }
 
     // height of current picture
     public int height() {
         if (!this.trans)
-            return this.H; // transpose back
+            return ePic.H; // transpose back
         else
-            return this.W; // transposed
+            return ePic.W; // transposed
     }
 
     // energy of pixel at column x and row y
@@ -74,36 +51,11 @@ public class SeamCarver {
         }
         double energy;
         if (this.trans) {
-            energy = this.pic[x][y].energy; // transposed
+            energy = ePic.pic[x][y].energy; // transposed
         } else {
-            energy = this.pic[y][x].energy; // transpose back
+            energy = ePic.pic[y][x].energy; // transpose back
         }
         return Math.sqrt(energy);
-    }
-
-    private int gradientSq(int x, int y) {
-        if (isBorder(x, y)) {
-            return 1000 * 1000;
-        }
-        int square = 0, diff;
-        for (int i = 0; i < SeamCarver.DIRECTION.length; i += 2) {
-            int X1 = x + SeamCarver.DIRECTION[i][0], Y1 = y
-                    + SeamCarver.DIRECTION[i][1];
-            int X2 = x + SeamCarver.DIRECTION[i + 1][0], Y2 = y
-                    + SeamCarver.DIRECTION[i + 1][1];
-            Color c1 = this.pic[Y1][X1].color, c2 = this.pic[Y2][X2].color;
-            diff = c1.getRed() - c2.getRed();
-            square += diff * diff;
-            diff = c1.getGreen() - c2.getGreen();
-            square += diff * diff;
-            diff = c1.getBlue() - c2.getBlue();
-            square += diff * diff;
-        }
-        return square;
-    }
-
-    private boolean isBorder(int col, int row) {
-        return col == 0 || col == this.W - 1 || row == 0 || row == this.H - 1;
     }
 
     // sequence of indices for horizontal seam
@@ -119,9 +71,11 @@ public class SeamCarver {
     }
 
     private int[] findSeam() {
-        SeamDFS dfs = new SeamDFS(this.pic, this.W, this.H);
+        SeamDFS dfs = new SeamDFS(ePic.pic, ePic.W, ePic.H);
         dfs.findSeam(); // just consider vertical
-        return dfs.path();
+        int[] seam = dfs.path();
+        dfs = null;
+        return seam;
     }
 
     // remove horizontal seam from current picture
@@ -141,52 +95,31 @@ public class SeamCarver {
     }
 
     private void removeSeam(int[] seam) {
-        for (int row = 0; row < this.H; ++row) {
-            System.arraycopy(pic[row], seam[row] + 1, pic[row], seam[row],
-                    this.W - seam[row] - 1);
-            pic[row][this.W - 1] = null;
+        for (int row = 0; row < ePic.H; ++row) {
+            System.arraycopy(ePic.pic[row], seam[row] + 1, ePic.pic[row], seam[row],
+                    ePic.W - seam[row] - 1);
+            ePic.pic[row][ePic.W - 1] = null;
         }
-        this.W--;
-        for (int r = 0; r < this.H; ++r) {
-            for (int i = 0; i < SeamCarver.DIRECTION.length; i++) {
-                int col = seam[r] + SeamCarver.DIRECTION[i][0];
-                int row = r + SeamCarver.DIRECTION[i][1];
-                if ((!CheckUtil.checkOutBound(col, 0, this.W))
-                        && (!CheckUtil.checkOutBound(row, 0, this.H))) {
-                    this.pic[row][col].energy = this.gradientSq(col, row);
-                }
-            }
-            if ((!CheckUtil.checkOutBound(seam[r], 0, this.W))
-                    && (!CheckUtil.checkOutBound(r, 0, this.H))) {
-                this.pic[r][seam[r]].energy = this.gradientSq(seam[r], r);
-            }
-        }
+        ePic.W--;
+        ePic.refreshEnergy(seam);
     }
 
     private void transpose(boolean isTrans) {
         if (this.trans != isTrans) {
-            int side;
-            if (this.W > this.H) {
-                side = this.W;
-            } else {
-                side = this.H;
-            }
-            for (int i = 0; i < side; i++) {
-                for (int j = i + 1; j < side; j++) {
-                    swap(i, j);
+            int h = ePic.H, w = ePic.W;
+            Pixel[][] tranPic = new Pixel[w][h];
+            for (int row = 0; row < h; row++) {
+                for (int col = 0; col < w; col++) {
+                    tranPic[col][row] = ePic.pic[row][col];
+                    ePic.pic[row][col] = null;
                 }
             }
-            int tmp = this.H;
-            this.H = this.W;
-            this.W = tmp;
+            ePic.pic = tranPic;
+            int tmp = ePic.H;
+            ePic.H = ePic.W;
+            ePic.W = tmp;
             this.trans = isTrans;
         }
-    }
-
-    private void swap(int i, int j) {
-        Pixel tmp = this.pic[i][j];
-        this.pic[i][j] = this.pic[j][i];
-        this.pic[j][i] = tmp;
     }
 
     private void checkSeam(int[] seam, int len, int bound) {
