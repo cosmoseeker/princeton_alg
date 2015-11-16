@@ -71,16 +71,7 @@ public class SAP {
         validateVertex(v);
         validateVertex(w);
         
-        Query query = new Query(v, w);
-        int shortest = -1, ancester = -1;
-        if (this.result.containsKey(query)) {
-            shortest = this.result.get(query).get(1);
-        } else {
-            this.dbfs.bfs(v, w);
-            ancester = this.dbfs.getAncester();
-            shortest = this.dbfs.getShortest();
-            this.result.put(query, Arrays.asList(ancester, shortest));
-        }
+        int shortest = getAns(v, w, 1);
         return shortest;
     }
 
@@ -95,17 +86,22 @@ public class SAP {
         validateVertex(v);
         validateVertex(w);
         
+        int ancester = getAns(v, w, 0);
+        return ancester;
+    }
+
+    private int getAns(Iterable<Integer> v, Iterable<Integer> w, int index) {
         Query query = new Query(v, w);
-        int shortest = -1, ancester = -1;
+        int[] ans = new int[2];
         if (this.result.containsKey(query)) {
-            ancester = this.result.get(query).get(0);
+            ans[index] = this.result.get(query).get(index);
         } else {
             this.dbfs.bfs(v, w);
-            ancester = this.dbfs.getAncester();
-            shortest = this.dbfs.getShortest();
-            this.result.put(query, Arrays.asList(ancester, shortest));
+            ans[0] = this.dbfs.getAncester();
+            ans[1] = this.dbfs.getShortest();
+            this.result.put(query, Arrays.asList(ans[0], ans[1]));
         }
-        return ancester;
+        return ans[index];
     }
 
     private boolean validateVertex(int v) {
