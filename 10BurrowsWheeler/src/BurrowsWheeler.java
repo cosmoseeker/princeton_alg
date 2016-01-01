@@ -34,18 +34,17 @@ public class BurrowsWheeler {
         String t = BinaryStdIn.readString();
         int len = t.length();
         int[] next = new int[len];
-        char[] sorted = t.toCharArray();
-        Arrays.sort(sorted);
+        char[] originalSuffix = t.toCharArray();
+        Arrays.sort(originalSuffix);
         int[] start = new int[R];
-        Arrays.fill(start, -1);
         for (int i = 0; i < len; i++) {
-            char c = sorted[i];
-            next[i] = t.indexOf(c, start[c] + 1);
-            start[c] = next[i];
+            char c = originalSuffix[i];
+            next[i] = t.indexOf(c, start[c]);
+            start[c] = next[i] + 1;
         }
         for (int i = 0; i < len; i++) {
-            BinaryStdOut.write(sorted[first]);
-            first = next[next[first]];
+            BinaryStdOut.write(originalSuffix[first]);
+            first = next[first];
         }
         BinaryStdIn.close();
         BinaryStdOut.close();

@@ -13,11 +13,12 @@ public class MoveToFront {
         }
         while (!BinaryStdIn.isEmpty()) { // while has input
             char c = BinaryStdIn.readChar();
-            char code = 0, cc = code2char[code];
-            while (cc != c) {
+            char code = 0, prevc = code2char[code], tmp;
+            while (prevc != c) {
                 code++;
-                cc = code2char[code];
-                code2char[code] = code2char[code - 1];
+                tmp = code2char[code];
+                code2char[code] = prevc;
+                prevc = tmp;
             }
             BinaryStdOut.write(code);
             if (code > 0) {
@@ -51,21 +52,10 @@ public class MoveToFront {
     // if args[0] is '-', apply move-to-front encoding
     // if args[0] is '+', apply move-to-front decoding
     public static void main(String[] args) {
-        if (args.length != 1) {
-            System.out.printf("\nError: provide encode/decode specifier");
-            System.out.printf("\nex: java MoveToFront - < some_file.txt");
-            System.exit(1);
-        }
-
         if (args[0].equals("-")) {
             encode();
         } else if (args[0].equals("+")) {
             decode();
-        } else {
-            System.out
-                    .printf("\n\nIllegial argument \"%s\". Only \"+\" or \"-\" are"
-                            + " accepted");
-            System.exit(1);
         }
     }
 }
